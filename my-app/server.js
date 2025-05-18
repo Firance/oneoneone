@@ -14,25 +14,18 @@ app.use((req, res, next) => {
 // 中间件配置
 app.use(express.json());
 
+// 静态文件服务 - 移到登录检查之前
+app.use(express.static(path.join(__dirname, 'public')));
+
 // 配置会话存储（使用内存存储）
 app.use(session({
     secret: process.env.SESSION_SECRET || 'your-secret-key',
     resave: false,
     saveUninitialized: false,
     cookie: { 
-        maxAge: 24 * 60 * 60 * 1000 // 24小时
-    }
-}));
-
-// 静态文件服务
-app.use(express.static(path.join(__dirname, 'public'), {
-    index: false,
-    setHeaders: (res, path) => {
-        if (path.endsWith('.html')) {
-            res.setHeader('Cache-Control', 'no-cache');
-        } else {
-            res.setHeader('Cache-Control', 'public, max-age=31536000');
-        }
+        maxAge: 24 * 60 * 60 * 1000, // 24小时
+        secure: process.env.NODE_ENV === 'production', // 在生产环境使用 secure cookie
+        sameSite: 'lax'
     }
 }));
 
