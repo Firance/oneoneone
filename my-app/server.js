@@ -1,17 +1,32 @@
 const express = require('express');
 const session = require('express-session');
 const path = require('path');
+const RedisStore = require('connect-redis').default;
+const { createClient } = require('redis');
 
 const app = express();
-const port = 3000;
 
 // 中间件配置
 app.use(express.json());
+
+// 配置 Redis 客户端
+const redisClient = createClient({
+    url: process.env.REDIS_URL || 'redis://localhost:6379'
+});
+
+redisClient.connect().catch(console.error);
+
+// 配置会话存储
 app.use(session({
-    secret: 'your-secret-key',
+    store: new RedisStore({ client: redisClient }),
+    secret: process.env.SESSION_SECRET || 'your-secret-key',
     resave: false,
     saveUninitialized: false,
-    cookie: { maxAge: 24 * 60 * 60 * 1000 } // 24小时
+    cookie: { 
+        maxAge: 24 * 60 * 60 * 1000, // 24小时
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax'
+    }
 }));
 
 // 登录状态检查中间件
@@ -45,8 +60,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
 
-    // 静态验证
-    if (username === 'tang' && password === '123987') {
+    // 从环境变量获取凭据
+    const validUsername = process.env.ADMIN_USERNAME || 'tang';
+    const validPassword = process.env.ADMIN_PASSWORD || '123987';
+
+    // 验证
+    if (username === validUsername && password === validPassword) {
         req.session.loggedIn = true;
         req.session.username = username;
         res.json({ success: true });
@@ -70,7 +89,10 @@ app.get('/', (req, res) => {
     }
 });
 
-// 启动服务器
-app.listen(port, () => {
-    console.log(`服务器运行在 http://localhost:${port}`);
-}); 
+// 健康检查端点
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok' });
+});
+
+// 导出 app 而不是直接启动服务器
+module.exports = app; 
