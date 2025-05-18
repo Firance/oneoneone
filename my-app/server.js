@@ -1,6 +1,5 @@
 const express = require('express');
 const session = require('express-session');
-const mysql = require('mysql2/promise');
 const path = require('path');
 
 const app = express();
@@ -14,14 +13,6 @@ app.use(session({
     saveUninitialized: false,
     cookie: { maxAge: 24 * 60 * 60 * 1000 } // 24小时
 }));
-
-// MySQL连接配置
-const pool = mysql.createPool({
-    host: 'localhost',
-    user: 'root',
-    password: 'nihenhao123987',
-    database: 'sys'
-});
 
 // 登录状态检查中间件
 const checkAuth = (req, res, next) => {
@@ -47,34 +38,20 @@ const checkAuth = (req, res, next) => {
 // 先应用登录检查中间件
 app.use(checkAuth);
 
-// 再提供静态文件服务
-app.use(express.static(path.join(__dirname)));
+// 静态文件服务
+app.use(express.static(path.join(__dirname, 'public')));
 
 // 登录API
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
 
-    try {
-        const connection = await pool.getConnection();
-        try {
-            const [rows] = await connection.execute(
-                'SELECT * FROM logion WHERE count = ? AND password = ?',
-                [username, password]
-            );
-
-            if (rows.length > 0) {
-                req.session.loggedIn = true;
-                req.session.username = username;
-                res.json({ success: true });
-            } else {
-                res.json({ success: false, message: '用户名或密码错误' });
-            }
-        } finally {
-            connection.release();
-        }
-    } catch (error) {
-        console.error('数据库查询错误:', error);
-        res.status(500).json({ success: false, message: '服务器错误' });
+    // 静态验证
+    if (username === 'tang' && password === '123987') {
+        req.session.loggedIn = true;
+        req.session.username = username;
+        res.json({ success: true });
+    } else {
+        res.json({ success: false, message: '用户名或密码错误' });
     }
 });
 
