@@ -83,12 +83,8 @@ app.post('/api/logout', (req, res) => {
 
 // 根路由处理
 app.get('/', (req, res) => {
-    console.log('Root path accessed, session:', req.session);
-    if (!req.session.loggedIn) {
-        res.sendFile(path.join(__dirname, 'public', 'login.html'));
-    } else {
-        res.sendFile(path.join(__dirname, 'public', 'index.html'));
-    }
+    console.log('Root path accessed, redirecting to login');
+    res.redirect('/login.html');
 });
 
 // 健康检查端点
