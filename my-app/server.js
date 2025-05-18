@@ -5,6 +5,12 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// 调试中间件
+app.use((req, res, next) => {
+    console.log(`${req.method} ${req.path}`);
+    next();
+});
+
 // 中间件配置
 app.use(express.json());
 
@@ -18,11 +24,10 @@ app.use(session({
     }
 }));
 
-// 静态文件服务 - 移到登录检查之前
+// 静态文件服务
 app.use(express.static(path.join(__dirname, 'public'), {
-    index: false, // 禁用默认的 index.html
+    index: false,
     setHeaders: (res, path) => {
-        // 设置缓存控制
         if (path.endsWith('.html')) {
             res.setHeader('Cache-Control', 'no-cache');
         } else {
@@ -33,6 +38,9 @@ app.use(express.static(path.join(__dirname, 'public'), {
 
 // 登录状态检查中间件
 const checkAuth = (req, res, next) => {
+    console.log('Checking auth for path:', req.path);
+    console.log('Session:', req.session);
+
     // 允许访问登录页面和登录API
     if (req.path === '/login.html' || req.path === '/api/login') {
         return next();
@@ -58,6 +66,7 @@ app.use(checkAuth);
 // 登录API
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
+    console.log('Login attempt:', { username });
 
     // 从环境变量获取凭据
     const validUsername = process.env.ADMIN_USERNAME || 'tang';
@@ -81,6 +90,7 @@ app.post('/api/logout', (req, res) => {
 
 // 根路由处理
 app.get('/', (req, res) => {
+    console.log('Root path accessed, session:', req.session);
     if (!req.session.loggedIn) {
         res.sendFile(path.join(__dirname, 'public', 'login.html'));
     } else {
@@ -91,6 +101,18 @@ app.get('/', (req, res) => {
 // 健康检查端点
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok' });
+});
+
+// 错误处理中间件
+app.use((err, req, res, next) => {
+    console.error('Error:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
+});
+
+// 404处理
+app.use((req, res) => {
+    console.log('404 Not Found:', req.path);
+    res.status(404).send('Not Found');
 });
 
 // 启动服务器
