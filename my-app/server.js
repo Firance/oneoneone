@@ -18,6 +18,19 @@ app.use(session({
     }
 }));
 
+// 静态文件服务 - 移到登录检查之前
+app.use(express.static(path.join(__dirname, 'public'), {
+    index: false, // 禁用默认的 index.html
+    setHeaders: (res, path) => {
+        // 设置缓存控制
+        if (path.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-cache');
+        } else {
+            res.setHeader('Cache-Control', 'public, max-age=31536000');
+        }
+    }
+}));
+
 // 登录状态检查中间件
 const checkAuth = (req, res, next) => {
     // 允许访问登录页面和登录API
@@ -39,21 +52,8 @@ const checkAuth = (req, res, next) => {
     res.redirect('/login.html');
 };
 
-// 先应用登录检查中间件
+// 应用登录检查中间件
 app.use(checkAuth);
-
-// 静态文件服务
-app.use(express.static(path.join(__dirname, 'public'), {
-    index: false, // 禁用默认的 index.html
-    setHeaders: (res, path) => {
-        // 设置缓存控制
-        if (path.endsWith('.html')) {
-            res.setHeader('Cache-Control', 'no-cache');
-        } else {
-            res.setHeader('Cache-Control', 'public, max-age=31536000');
-        }
-    }
-}));
 
 // 登录API
 app.post('/api/login', (req, res) => {
