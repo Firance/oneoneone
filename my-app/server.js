@@ -1,31 +1,20 @@
 const express = require('express');
 const session = require('express-session');
 const path = require('path');
-const RedisStore = require('connect-redis').default;
-const { createClient } = require('redis');
 
 const app = express();
+const PORT = process.env.PORT || 3000;
 
 // 中间件配置
 app.use(express.json());
 
-// 配置 Redis 客户端
-const redisClient = createClient({
-    url: process.env.REDIS_URL || 'redis://localhost:6379'
-});
-
-redisClient.connect().catch(console.error);
-
-// 配置会话存储
+// 配置会话存储（使用内存存储）
 app.use(session({
-    store: new RedisStore({ client: redisClient }),
     secret: process.env.SESSION_SECRET || 'your-secret-key',
     resave: false,
     saveUninitialized: false,
     cookie: { 
-        maxAge: 24 * 60 * 60 * 1000, // 24小时
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax'
+        maxAge: 24 * 60 * 60 * 1000 // 24小时
     }
 }));
 
@@ -54,7 +43,17 @@ const checkAuth = (req, res, next) => {
 app.use(checkAuth);
 
 // 静态文件服务
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+    index: false, // 禁用默认的 index.html
+    setHeaders: (res, path) => {
+        // 设置缓存控制
+        if (path.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-cache');
+        } else {
+            res.setHeader('Cache-Control', 'public, max-age=31536000');
+        }
+    }
+}));
 
 // 登录API
 app.post('/api/login', (req, res) => {
@@ -80,12 +79,12 @@ app.post('/api/logout', (req, res) => {
     res.json({ success: true });
 });
 
-// 根路由重定向到登录页面
+// 根路由处理
 app.get('/', (req, res) => {
     if (!req.session.loggedIn) {
-        res.redirect('/login.html');
+        res.sendFile(path.join(__dirname, 'public', 'login.html'));
     } else {
-        res.redirect('/index.html');
+        res.sendFile(path.join(__dirname, 'public', 'index.html'));
     }
 });
 
@@ -93,6 +92,15 @@ app.get('/', (req, res) => {
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok' });
 });
+
+// 启动服务器
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`服务器已启动！`);
+        console.log(`请访问: http://localhost:${PORT}`);
+        console.log(`登录页面: http://localhost:${PORT}/login.html`);
+    });
+}
 
 // 导出 app 而不是直接启动服务器
 module.exports = app; 
